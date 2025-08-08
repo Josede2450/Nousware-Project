@@ -1,12 +1,12 @@
-package com.nousware.service.impl;
+package com.nousware.service;
 
 import com.nousware.dto.RegistrationRequest;
+import com.nousware.entities.Role;
 import com.nousware.entities.User;
 import com.nousware.entities.VerificationToken;
+import com.nousware.repository.RoleRepository;
 import com.nousware.repository.UserRepository;
 import com.nousware.repository.VerificationTokenRepository;
-import com.nousware.service.EmailService;
-import com.nousware.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,15 +24,18 @@ public class UserServiceImpl implements UserService {
     private final VerificationTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final RoleRepository roleRepository;
 
     public UserServiceImpl(UserRepository userRepository,
                            VerificationTokenRepository tokenRepository,
                            PasswordEncoder passwordEncoder,
-                           EmailService emailService) {
+                           EmailService emailService,
+                           RoleRepository roleRepository) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.roleRepository = roleRepository;
     }
 
     @Transactional
@@ -53,6 +56,11 @@ public class UserServiceImpl implements UserService {
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
+        // Assign CLIENT role
+        Role clientRole = roleRepository.findByRoleName("CLIENT")
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Client role not found"));
+        user.setRoles(List.of(clientRole));
+
         userRepository.save(user);
 
         // create verification token
@@ -64,7 +72,7 @@ public class UserServiceImpl implements UserService {
 
         tokenRepository.save(verificationToken);
 
-        // build link (point to your frontend if you have one)
+        // send verification email
         emailService.sendVerificationEmail(user.getEmail(), token);
     }
 
