@@ -8,20 +8,29 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class NouswareApplication {
 
 	public static void main(String[] args) {
-
-		// Load .env file from project root
+		// Load .env from project root
 		Dotenv dotenv = Dotenv.configure()
-				.ignoreIfMissing()   // won't crash if missing
-				.ignoreIfMalformed() // tolerant of bad lines
+				.ignoreIfMissing()
+				.ignoreIfMalformed()
 				.load();
 
-		// Push all needed vars into system properties so Spring can resolve them
+		// DB / Server
 		setIfPresent(dotenv, "DB_URL");
 		setIfPresent(dotenv, "DB_USERNAME");
 		setIfPresent(dotenv, "DB_PASSWORD");
 		setIfPresent(dotenv, "JPA_DDL_AUTO");
 		setIfPresent(dotenv, "JPA_SHOW_SQL");
 		setIfPresent(dotenv, "SERVER_PORT");
+
+		// Mail (needed for Spring Mail placeholders)
+		setIfPresent(dotenv, "MAIL_HOST");
+		setIfPresent(dotenv, "MAIL_PORT");
+		setIfPresent(dotenv, "MAIL_USERNAME");
+		setIfPresent(dotenv, "MAIL_PASSWORD");
+		setIfPresent(dotenv, "MAIL_FROM");
+
+		// Optional: backend base URL for verify links (if you use it)
+		setIfPresent(dotenv, "APP_BACKEND_BASE_URL");
 
 		SpringApplication.run(NouswareApplication.class, args);
 	}
