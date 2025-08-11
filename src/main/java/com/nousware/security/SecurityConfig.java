@@ -81,10 +81,12 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/**",
                                 "/error",
-                                "/api/faqs/**",         // TEMP: allow all FAQ endpoints
-                                "/api/services/**",     // TEMP: allow all Service endpoints
-                                "/api/testimonials/**"  // TEMP: allow all Testimonial endpoints
+                                "/api/faqs/**",          // TEMP: allow all FAQ endpoints
+                                "/api/services/**",      // TEMP: allow all Service endpoints
+                                "/api/testimonials/**",  // TEMP: allow all Testimonial endpoints
+                                "/api/contact/**"        // TEMP: allow all ContactForm endpoints
                         ).permitAll()
+
 
 
 

@@ -19,6 +19,7 @@ public class ContactForm {
 
     private String name;
     private String email;
+    private String phone;     // <--- NEW
     private String message;
 
     private LocalDateTime createdAt;

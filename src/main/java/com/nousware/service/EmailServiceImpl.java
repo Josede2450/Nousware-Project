@@ -1,6 +1,6 @@
 package com.nousware.service;
 
-import com.nousware.service.EmailService;
+import com.nousware.entities.ContactForm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.SimpleMailMessage;
@@ -17,6 +17,9 @@ public class EmailServiceImpl implements EmailService {
     // All localhost for dev
     private final String backendBaseUrl = "http://localhost:8080";   // API host
     private final String from = "noreply@nousware.dev";
+
+    // Where contact notifications should be sent (change as needed)
+    private final String contactNotifyTo = "admin@nousware.dev";
 
     public EmailServiceImpl(JavaMailSender mailSender) {
         this.mailSender = mailSender;
@@ -62,5 +65,40 @@ public class EmailServiceImpl implements EmailService {
         mailSender.send(msg);
         log.info("Password reset email sent to {}", to);
         log.info("DEV reset reference link (POST required): {}", devLink);
+    }
+
+    // ===== New: contact form notification =====
+    @Override
+    public void sendContactNotification(ContactForm form) {
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setFrom(from);
+        msg.setTo(contactNotifyTo);
+        msg.setSubject("New contact form submission");
+
+        String body = """
+                A new contact form was submitted.
+
+                Name: %s
+                Email: %s
+                Phone: %s
+                Created At: %s
+
+                Message:
+                %s
+                """.formatted(
+                safe(form.getName()),
+                safe(form.getEmail()),
+                safe(form.getPhone()),
+                String.valueOf(form.getCreatedAt()),
+                safe(form.getMessage())
+        );
+
+        msg.setText(body);
+        mailSender.send(msg);
+        log.info("Contact notification sent to {}", contactNotifyTo);
+    }
+
+    private String safe(String s) {
+        return s == null ? "" : s;
     }
 }
