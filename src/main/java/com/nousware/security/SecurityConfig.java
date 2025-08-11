@@ -8,6 +8,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -18,7 +19,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
-
+@EnableMethodSecurity
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfig {
 
@@ -75,11 +76,12 @@ public class SecurityConfig {
                                 "/api/auth/verify",
                                 "/api/auth/login",
                                 "/api/auth/login/google",
-                                "/api/auth/forgot-password",   // allow password reset requests
-                                "/api/auth/reset-password",    // allow password reset submissions
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
                                 "/oauth2/**",
                                 "/login/**",
-                                "/error"
+                                "/error",
+                                "/api/faqs/**" // <-- TEMP: allow all FAQ endpoints
                         ).permitAll()
 
                         .anyRequest().authenticated()
