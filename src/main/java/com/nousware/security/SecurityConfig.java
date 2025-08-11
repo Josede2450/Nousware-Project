@@ -75,10 +75,13 @@ public class SecurityConfig {
                                 "/api/auth/verify",
                                 "/api/auth/login",
                                 "/api/auth/login/google",
+                                "/api/auth/forgot-password",   // allow password reset requests
+                                "/api/auth/reset-password",    // allow password reset submissions
                                 "/oauth2/**",
                                 "/login/**",
                                 "/error"
                         ).permitAll()
+
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form.disable())

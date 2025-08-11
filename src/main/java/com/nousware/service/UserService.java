@@ -10,6 +10,10 @@ public interface UserService {
     void registerUser(RegistrationRequest request);
     boolean verifyAccount(String token);
 
+    void requestPasswordReset(String email);
+    void resetPassword(String token, String newPassword);
+
+
     @Transactional
     void resendVerification(String email);
 

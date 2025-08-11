@@ -1,9 +1,11 @@
 package com.nousware.entities;
 
+import com.nousware.enums.TokenType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -18,7 +20,12 @@ public class VerificationToken {
     private int tokenId;
 
     private String token;
+
     private LocalDateTime expiryDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "token_type", nullable = false)
+    private TokenType tokenType;  // <-- ADD THIS
 
     @OneToOne
     @JoinColumn(name = "user_id")

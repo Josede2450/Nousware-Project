@@ -1,13 +1,10 @@
-package com.nousware.service.impl;
+package com.nousware.service;
 
 import com.nousware.service.EmailService;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -17,13 +14,9 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    // Where your backend runs; used to build the verify link
-    @Value("${app.backend.base-url:http://localhost:8080}")
-    private String backendBaseUrl;
-
-    // From address
-    @Value("${spring.mail.from:noreply@nousware.dev}")
-    private String from;
+    // All localhost for dev
+    private final String backendBaseUrl = "http://localhost:8080";   // API host
+    private final String from = "noreply@nousware.dev";
 
     public EmailServiceImpl(JavaMailSender mailSender) {
         this.mailSender = mailSender;
@@ -33,32 +26,41 @@ public class EmailServiceImpl implements EmailService {
     public void sendVerificationEmail(String to, String token) {
         String link = backendBaseUrl + "/api/auth/verify?token=" + token;
 
-        String subject = "Verify your Nousware account";
-        String html = """
-            <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6">
-              <h2>Confirm your email</h2>
-              <p>Click the button below to verify your account.</p>
-              <p><a href="%s" 
-                    style="display:inline-block;padding:10px 16px;text-decoration:none;border-radius:6px;
-                           background:#0d6efd;color:#fff;text-decoration:none">Verify Email</a></p>
-              <p>Or copy this link:<br>%s</p>
-              <p>This link expires in 15 minutes.</p>
-            </div>
-            """.formatted(link, link);
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setFrom(from);
+        msg.setTo(to);
+        msg.setSubject("Verify your Nousware account");
+        msg.setText(
+                "Confirm your email to activate your account.\n\n" +
+                        "Verification link:\n" + link + "\n\n" +
+                        "This link expires in 15 minutes."
+        );
 
-        try {
-            MimeMessage msg = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(msg, "UTF-8");
-            helper.setTo(to);
-            helper.setFrom(from);
-            helper.setSubject(subject);
-            helper.setText(html, true);
-            mailSender.send(msg);
-            log.info("Verification email sent to {}", to);
-        } catch (MessagingException e) {
-            // Don’t crash the flow in dev—log and also print the link for manual testing
-            log.error("Failed to send verification email to {}: {}", to, e.getMessage());
-            log.info("DEV fallback — verification link: {}", link);
-        }
+        mailSender.send(msg);
+        log.info("Verification email sent to {}", to);
+        log.info("DEV verification link: {}", link);
+    }
+
+    @Override
+    public void sendPasswordResetEmail(String to, String token) {
+        // Dev-only helper link (note: your reset endpoint is POST; this link is for reference/logs)
+        String devLink = backendBaseUrl + "/api/auth/reset-password?token=" + token;
+
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setFrom(from);
+        msg.setTo(to);
+        msg.setSubject("Reset your password");
+        msg.setText(
+                "We received a request to reset your password.\n\n" +
+                        "Use this token in your API call:\n" +
+                        token + "\n\n" +
+                        "POST " + backendBaseUrl + "/api/auth/reset-password\n" +
+                        "Body JSON: { \"token\": \"" + token + "\", \"newPassword\": \"<your-new-password>\" }\n\n" +
+                        "This token expires in 15 minutes."
+        );
+
+        mailSender.send(msg);
+        log.info("Password reset email sent to {}", to);
+        log.info("DEV reset reference link (POST required): {}", devLink);
     }
 }
