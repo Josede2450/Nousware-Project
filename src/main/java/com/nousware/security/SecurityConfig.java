@@ -81,8 +81,10 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/**",
                                 "/error",
-                                "/api/faqs/**" // <-- TEMP: allow all FAQ endpoints
+                                "/api/faqs/**",     // TEMP: allow all FAQ endpoints
+                                "/api/services/**"  // TEMP: allow all Service endpoints
                         ).permitAll()
+
 
                         .anyRequest().authenticated()
                 )
