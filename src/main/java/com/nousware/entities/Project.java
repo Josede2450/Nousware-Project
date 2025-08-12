@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,4 +31,23 @@ public class Project {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
+
+    // Derived fields (not stored in DB)
+    @Transient
+    public String getFirstName() {
+        return user != null ? user.getName().split(" ")[0] : null;
+    }
+
+    @Transient
+    public String getLastName() {
+        if (user != null && user.getName().contains(" ")) {
+            return user.getName().substring(user.getName().indexOf(" ") + 1);
+        }
+        return null;
+    }
+
+    @Transient
+    public String getPhone() {
+        return user != null ? user.getPhone() : null;
+    }
 }
