@@ -35,4 +35,12 @@ public class Comment {
 
     @OneToMany(mappedBy = "parentComment")
     private List<Comment> replies;
+
+
+    @OneToMany(mappedBy = "comment", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private List<CommentLike> likes;
+
+    @Transient
+    public int getLikeCount() { return likes == null ? 0 : likes.size(); }
+
 }
