@@ -88,8 +88,10 @@ public class SecurityConfig {
                                 "/api/projects/**",      // TEMP: allow all Project endpoints
                                 "/api/addresses/**",     // TEMP: allow all Address endpoints
                                 "/api/posts/**",         // TEMP: allow all BlogPost endpoints
-                                "/api/tags/**"           // TEMP: allow all Tag endpoints
+                                "/api/tags/**",          // TEMP: allow all Tag endpoints
+                                "/api/post-likes/**"     // TEMP: allow all PostLike endpoints
                         ).permitAll()
+
 
 
 
