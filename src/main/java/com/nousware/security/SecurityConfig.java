@@ -86,8 +86,11 @@ public class SecurityConfig {
                                 "/api/testimonials/**",  // TEMP: allow all Testimonial endpoints
                                 "/api/contact/**",       // TEMP: allow all ContactForm endpoints
                                 "/api/projects/**",      // TEMP: allow all Project endpoints
-                                "/api/addresses/**"      // TEMP: allow all Address endpoints
+                                "/api/addresses/**",     // TEMP: allow all Address endpoints
+                                "/api/posts/**",         // TEMP: allow all BlogPost endpoints
+                                "/api/tags/**"           // TEMP: allow all Tag endpoints
                         ).permitAll()
+
 
 
 

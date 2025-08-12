@@ -4,8 +4,9 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "blog_post")
@@ -19,8 +20,10 @@ public class BlogPost {
     private int postId;
 
     private String title;
+    @Column(columnDefinition = "TEXT")
     private String content;
-    private int likeCount;
+
+    // REMOVE likeCount column from DB (see migration below)
     private String slug;
 
     private LocalDateTime createdAt;
@@ -30,8 +33,8 @@ public class BlogPost {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @OneToMany(mappedBy = "blogPost")
-    private List<Comment> comments;
+    @OneToMany(mappedBy = "blogPost", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private Set<Comment> comments;
 
     @ManyToMany
     @JoinTable(
@@ -39,5 +42,14 @@ public class BlogPost {
             joinColumns = @JoinColumn(name = "post_id"),
             inverseJoinColumns = @JoinColumn(name = "tag_id")
     )
-    private List<Tag> tags;
+    private Set<Tag> tags;
+
+    // New: likes (post <-> user)
+    @OneToMany(mappedBy = "blogPost", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private Set<PostLike> likes;
+
+    @Transient
+    public int getLikeCount() {
+        return likes == null ? 0 : likes.size();
+    }
 }
