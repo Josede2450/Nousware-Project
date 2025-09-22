@@ -3,6 +3,9 @@ package com.nousware.service;
 import com.nousware.entities.ContactForm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -12,22 +15,38 @@ public class EmailServiceImpl implements EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailServiceImpl.class);
 
-    private final JavaMailSender mailSender;
+    // Make "from" configurable; falls back if not set
+    @Value("${app.mail.from:noreply@nousware.dev}")
+    private String from;
 
-    // All localhost for dev
-    private final String backendBaseUrl = "http://localhost:8080";   // API host
-    private final String from = "noreply@nousware.dev";
+    // Values configurable from application.properties/yml
+    @Value("${app.backend-url:http://localhost:8080}")
+    private String backendBaseUrl;
 
-    // Where contact notifications should be sent (change as needed)
-    private final String contactNotifyTo = "admin@nousware.dev";
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendBaseUrl;
 
-    public EmailServiceImpl(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    @Value("${app.contact.notify-to:admin@nousware.dev}")
+    private String contactNotifyTo;
+
+    // Allow the app to start even if the mail bean is missing
+    @Autowired(required = false)
+    @Nullable
+    private JavaMailSender mailSender;
+
+    private boolean mailReady() {
+        if (mailSender == null) {
+            log.warn("JavaMailSender not configured — skipping email send.");
+            return false;
+        }
+        return true;
     }
 
     @Override
     public void sendVerificationEmail(String to, String token) {
-        String link = backendBaseUrl + "/api/auth/verify?token=" + token;
+        if (!mailReady()) return;
+
+        String link = frontendBaseUrl + "/login?verified=true&token=" + token;
 
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setFrom(from);
@@ -35,7 +54,7 @@ public class EmailServiceImpl implements EmailService {
         msg.setSubject("Verify your Nousware account");
         msg.setText(
                 "Confirm your email to activate your account.\n\n" +
-                        "Verification link:\n" + link + "\n\n" +
+                        "Click the link below:\n" + link + "\n\n" +
                         "This link expires in 15 minutes."
         );
 
@@ -46,8 +65,9 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendPasswordResetEmail(String to, String token) {
-        // Dev-only helper link (note: your reset endpoint is POST; this link is for reference/logs)
-        String devLink = backendBaseUrl + "/api/auth/reset-password?token=" + token;
+        if (!mailReady()) return;
+
+        String link = frontendBaseUrl + "/auth/reset-password?token=" + token;
 
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setFrom(from);
@@ -55,21 +75,20 @@ public class EmailServiceImpl implements EmailService {
         msg.setSubject("Reset your password");
         msg.setText(
                 "We received a request to reset your password.\n\n" +
-                        "Use this token in your API call:\n" +
-                        token + "\n\n" +
-                        "POST " + backendBaseUrl + "/api/auth/reset-password\n" +
-                        "Body JSON: { \"token\": \"" + token + "\", \"newPassword\": \"<your-new-password>\" }\n\n" +
-                        "This token expires in 15 minutes."
+                        "Click the link below to set a new password:\n" + link + "\n\n" +
+                        "If you did not request this, please ignore this email.\n\n" +
+                        "This link expires in 15 minutes."
         );
 
         mailSender.send(msg);
         log.info("Password reset email sent to {}", to);
-        log.info("DEV reset reference link (POST required): {}", devLink);
+        log.info("DEV reset link: {}", link);
     }
 
-    // ===== New: contact form notification =====
     @Override
     public void sendContactNotification(ContactForm form) {
+        if (!mailReady()) return;
+
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setFrom(from);
         msg.setTo(contactNotifyTo);

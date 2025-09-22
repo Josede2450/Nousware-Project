@@ -1,68 +1,64 @@
 package com.nousware.controller;
 
+import com.nousware.dto.ViewTestimonial;
 import com.nousware.entities.Testimonial;
-import com.nousware.service.TestimonialService;
+import com.nousware.service.TestimonialServiceImpl;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/testimonials")
+@RequestMapping(value = "/api/testimonials", produces = MediaType.APPLICATION_JSON_VALUE)
 public class TestimonialController {
 
-    private final TestimonialService service;
+    private final TestimonialServiceImpl service;
 
-    public TestimonialController(TestimonialService service) {
+    public TestimonialController(TestimonialServiceImpl service) {
         this.service = service;
     }
 
-    // Create — ADMIN only
+    // ---------- Create — ADMIN only ----------
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping
-    public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody Testimonial body) {
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ViewTestimonial> create(@Valid @RequestBody Testimonial body) {
         Testimonial created = service.create(body);
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("message", "Testimonial created successfully");
-        resp.put("testimonial", created);
-        return ResponseEntity.status(201).body(resp);
+        return ResponseEntity.status(201).body(service.getView(created.getTestimonialId()));
     }
 
-    // Read one — public
+    // ---------- Read one — public ----------
     @GetMapping("/{id}")
-    public ResponseEntity<Testimonial> get(@PathVariable Integer id) {
-        return ResponseEntity.ok(service.get(id));
+    public ResponseEntity<ViewTestimonial> get(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.getView(id));
     }
 
-    // List/search — public
-    // Use ?q=keyword OR ?userId=123 (q takes precedence if both provided)
+    // ---------- List/search — public ----------
+    // Supports ?q=keyword, ?userId=123, ?favorite=true and pageable params (?page=&size=&sort=createdAt,desc)
     @GetMapping
-    public ResponseEntity<Page<Testimonial>> list(
+    public ResponseEntity<Page<ViewTestimonial>> list(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Integer userId,
+            @RequestParam(required = false) Boolean favorite,
             Pageable pageable
     ) {
-        return ResponseEntity.ok(service.list(q, userId, pageable));
+        return ResponseEntity.ok(service.listView(q, userId, favorite, pageable));
     }
 
-    // Update — ADMIN only
+    // ---------- Update — ADMIN only ----------
     @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> update(@PathVariable Integer id,
-                                                      @Valid @RequestBody Testimonial body) {
+    @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ViewTestimonial> update(@PathVariable Integer id,
+                                                  @Valid @RequestBody Testimonial body) {
         Testimonial updated = service.update(id, body);
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("message", "Testimonial updated successfully");
-        resp.put("testimonial", updated);
-        return ResponseEntity.ok(resp);
+        return ResponseEntity.ok(service.getView(updated.getTestimonialId()));
     }
 
-    // Delete — ADMIN only
+    // ---------- Delete — ADMIN only ----------
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(@PathVariable Integer id) {

@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,26 +34,48 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+        if (email == null) {
+            throw new UsernameNotFoundException("Email is required");
+        }
+        String normalized = email.trim().toLowerCase();
 
-        log.debug("Loaded user={}, enable={}", user.getEmail(), user.isEnable());
+        User user = userRepository.findByEmailIgnoreCase(normalized)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + normalized));
 
         if (!user.isEnable()) {
             throw new DisabledException("User account is not verified yet");
         }
 
-        return new org.springframework.security.core.userdetails.User(
-                user.getEmail(),
-                user.getPassword(),
-                getAuthorities(user)
-        );
+        Collection<? extends GrantedAuthority> authorities = getAuthorities(user);
+        List<String> roleNames = authorities.stream().map(GrantedAuthority::getAuthority).toList();
+        log.debug("Loaded user={}, enable={}, authorities={}", user.getEmail(), user.isEnable(), roleNames);
+
+        // We already checked 'enable', so mark as not disabled here.
+        return org.springframework.security.core.userdetails.User
+                .withUsername(user.getEmail())
+                .password(user.getPassword() == null ? "{noop}" : user.getPassword())
+                .authorities(authorities)
+                .accountExpired(false)
+                .accountLocked(false)
+                .credentialsExpired(false)
+                .disabled(false)
+                .build();
     }
 
     private Collection<? extends GrantedAuthority> getAuthorities(User user) {
-        if (user.getRoles() == null) return Collections.emptyList();
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            // Safe default so authenticated users still have a role
+            return Collections.singletonList(new SimpleGrantedAuthority("ROLE_CLIENT"));
+        }
+
         return user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority(role.getRoleName()))
+                .map(r -> r == null ? null : r.getRoleName())
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(name -> name.startsWith("ROLE_") ? name : "ROLE_" + name)
+                .distinct()
+                .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
     }
 }

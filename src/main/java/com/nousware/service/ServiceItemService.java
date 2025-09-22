@@ -9,5 +9,7 @@ public interface ServiceItemService {
     Service update(Integer id, Service input);
     void delete(Integer id);
     Service get(Integer id);
-    Page<Service> list(String q, Pageable pageable);
+
+    // UPDATED: allow optional category slug filter
+    Page<Service> list(String q, String categorySlug, Pageable pageable);
 }

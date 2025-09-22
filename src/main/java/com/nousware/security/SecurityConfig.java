@@ -1,8 +1,11 @@
 package com.nousware.security;
 
 import com.nousware.service.CustomUserDetailsService;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -13,36 +16,45 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.web.access.AccessDeniedHandler;
 
+import java.util.Arrays;
 import java.util.List;
+
 @EnableMethodSecurity
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
-    private final OAuth2JsonSuccessHandler successHandler;
     private final OAuth2JsonFailureHandler failureHandler;
-    private final PasswordEncoder passwordEncoder; // injected from PasswordConfig
+    private final OAuth2JsonSuccessHandler successHandler;
+    private final PasswordEncoder passwordEncoder;
+    private final DbRoleMappingOidcUserService dbRoleMappingOidcUserService; // OIDC only
 
-    public SecurityConfig(CustomUserDetailsService userDetailsService,
-                          OAuth2JsonSuccessHandler successHandler,
-                          OAuth2JsonFailureHandler failureHandler,
-                          PasswordEncoder passwordEncoder) {
+    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    private String corsAllowedOrigins;
+
+    public SecurityConfig(
+            CustomUserDetailsService userDetailsService,
+            OAuth2JsonFailureHandler failureHandler,
+            OAuth2JsonSuccessHandler successHandler,
+            PasswordEncoder passwordEncoder,
+            DbRoleMappingOidcUserService dbRoleMappingOidcUserService
+    ) {
         this.userDetailsService = userDetailsService;
-        this.successHandler = successHandler;
         this.failureHandler = failureHandler;
+        this.successHandler = successHandler;
         this.passwordEncoder = passwordEncoder;
+        this.dbRoleMappingOidcUserService = dbRoleMappingOidcUserService;
     }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder); // <- uses injected bean
+        provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }
 
@@ -51,70 +63,124 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    // CORS bean (picked up by .cors(Customizer.withDefaults()))
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration cors = new CorsConfiguration();
-        cors.setAllowedOrigins(List.of("http://localhost:3000")); // add prod origin later
-        cors.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-        cors.setAllowedHeaders(List.of("*"));
+    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        org.springframework.web.cors.CorsConfiguration cors = new org.springframework.web.cors.CorsConfiguration();
+
+        List<String> origins = Arrays.stream(corsAllowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .toList();
+
+        cors.setAllowedOrigins(origins);
+        cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        cors.setAllowedHeaders(List.of("Content-Type","Authorization","X-Requested-With","X-XSRF-TOKEN","Accept","Origin"));
+        cors.setExposedHeaders(List.of("Set-Cookie"));
         cors.setAllowCredentials(true);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        cors.setMaxAge(3600L);
+
+        org.springframework.web.cors.UrlBasedCorsConfigurationSource source =
+                new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cors);
         return source;
+    }
+
+    private AuthenticationEntryPoint unauthorizedJson() {
+        return (request, response, authException) -> {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"status\":401,\"error\":\"UNAUTHORIZED\"}");
+        };
+    }
+
+    private AccessDeniedHandler forbiddenJson() {
+        return (request, response, accessDeniedException) -> {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"status\":403,\"error\":\"FORBIDDEN\"}");
+        };
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
+                .csrf(csrf -> csrf.disable())
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .requestCache(RequestCacheConfigurer::disable)
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/auth/login",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/auth/verify",
+                                "/api/auth/login/google",
+                                "/oauth2/**",
+                                "/login/**").permitAll()
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/verify",
                                 "/api/auth/login",
                                 "/api/auth/login/google",
                                 "/api/auth/forgot-password",
-                                "/api/auth/reset-password",
-                                "/oauth2/**",
-                                "/login/**",
-                                "/error",
-                                "/api/faqs/**",          // TEMP: allow all FAQ endpoints
-                                "/api/services/**",      // TEMP: allow all Service endpoints
-                                "/api/testimonials/**",  // TEMP: allow all Testimonial endpoints
-                                "/api/contact/**",       // TEMP: allow all ContactForm endpoints
-                                "/api/projects/**",      // TEMP: allow all Project endpoints
-                                "/api/addresses/**",     // TEMP: allow all Address endpoints
-                                "/api/posts/**",         // TEMP: allow all BlogPost endpoints
-                                "/api/tags/**",          // TEMP: allow all Tag endpoints
-                                "/api/post-likes/**",    // TEMP: allow all PostLike endpoints
-                                "/api/comments/**",      // TEMP: allow all Comment endpoints
-                                "/api/comment-likes/**"  // TEMP: allow all CommentLike endpoints
-                        ).permitAll()
+                                "/api/auth/reset-password").permitAll()
 
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/services/**").permitAll()
+                        .requestMatchers("/api/services/**").hasAnyAuthority("ADMIN","ROLE_ADMIN")
 
+                        .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/**").permitAll()
+                        .requestMatchers("/api/categories/**").hasAnyAuthority("ADMIN","ROLE_ADMIN")
 
+                        .requestMatchers(HttpMethod.GET, "/api/faqs", "/api/faqs/**").permitAll()
+                        .requestMatchers("/api/faqs/**").hasAnyAuthority("ADMIN","ROLE_ADMIN")
 
+                        .requestMatchers(HttpMethod.GET, "/api/testimonials", "/api/testimonials/**").permitAll()
+                        .requestMatchers("/api/testimonials/**").authenticated()
 
+                        .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/contact", "/api/contact/**").hasAnyAuthority("ADMIN","ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/contact/**").hasAnyAuthority("ADMIN","ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/contact/**").hasAnyAuthority("ADMIN","ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/contact/**").hasAnyAuthority("ADMIN","ROLE_ADMIN")
 
+                        .requestMatchers("/api/users/me", "/api/users/me/**").authenticated()
+                        .requestMatchers("/api/users/**").hasAnyAuthority("ADMIN","ROLE_ADMIN")
+
+                        .requestMatchers(
+                                "/api/projects/**",
+                                "/api/addresses/**",
+                                "/api/posts/**",
+                                "/api/tags/**",
+                                "/api/post-likes/**",
+                                "/api/comments/**",
+                                "/api/comment-likes/**",
+                                "/actuator/health",
+                                "/actuator/info").permitAll()
 
                         .anyRequest().authenticated()
                 )
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
                 .oauth2Login(oauth -> oauth
+                        .userInfoEndpoint(u -> u
+                                .oidcUserService(dbRoleMappingOidcUserService) // Google OIDC
+                        )
                         .successHandler(successHandler)
                         .failureHandler(failureHandler)
                 )
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
-                        .logoutSuccessHandler((req, res, auth) -> res.setStatus(204))
+                        .deleteCookies("JSESSIONID")
+                        .logoutSuccessHandler((req, res, auth) -> res.setStatus(HttpServletResponse.SC_NO_CONTENT))
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(unauthorizedJson())
+                        .accessDeniedHandler(forbiddenJson())
                 )
                 .authenticationProvider(authenticationProvider())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
+                .httpBasic(basic -> basic.disable());
 
         return http.build();
     }

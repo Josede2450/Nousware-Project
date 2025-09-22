@@ -18,9 +18,14 @@ public class Testimonial {
     private int testimonialId;
 
     private String content;
+
     private LocalDateTime createdAt;
 
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
+
+    // ✅ Renamed field (many favorites allowed)
+    @Column(name = "favorite")  // DB column name
+    private boolean favorite;
 }

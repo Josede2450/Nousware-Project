@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -29,7 +30,10 @@ public class User {
     @Column(length = 120)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 190) // 190 safe for utf8mb4 + index
+    @Column(length = 120)
+    private String lastName;
+
+    @Column(nullable = false, unique = true, length = 190)
     private String email;
 
     @Column(length = 20)
@@ -48,10 +52,14 @@ public class User {
     private String googleSub;
 
     @Column(length = 20)
-    private String provider; // e.g., "LOCAL", "GOOGLE"
+    private String provider; // "LOCAL", "GOOGLE", ...
 
     @Column(name = "picture_url", length = 512)
-    private String pictureUrl;
+    private String pictureUrl; // from OAuth provider
+
+    // ---- User-uploaded avatar ----
+    @Column(name = "avatar_url", length = 512)
+    private String avatarUrl;
 
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
@@ -73,23 +81,34 @@ public class User {
     }
 
     // ---- Relations ----
-    @OneToMany(mappedBy = "user")
-    private List<Address> addresses;
+    @JsonIgnore
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<Address> addresses = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user")
-    private List<Project> projects;
+    @JsonIgnore
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<Project> projects = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user")
-    private List<Testimonial> testimonials;
+    @JsonIgnore
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<Testimonial> testimonials = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user")
-    private List<BlogPost> blogPosts;
+    @JsonIgnore
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<BlogPost> blogPosts = new ArrayList<>();
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "users_roles",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
-    private List<Role> roles;
+    private List<Role> roles = new ArrayList<>(); // ✅ MUTABLE by default
+
+    // Optional helpers (nice for service code)
+    public void setRolesMutable(List<Role> newRoles) {
+        if (this.roles == null) this.roles = new ArrayList<>();
+        this.roles.clear();
+        if (newRoles != null) this.roles.addAll(newRoles);
+    }
 }

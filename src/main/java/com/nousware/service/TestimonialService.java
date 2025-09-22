@@ -10,4 +10,7 @@ public interface TestimonialService {
     void delete(Integer id);
     Testimonial get(Integer id);
     Page<Testimonial> list(String q, Integer userId, Pageable pageable);
+
+    // 🔥 new overload with best filter
+    Page<Testimonial> list(String q, Integer userId, Boolean best, Pageable pageable);
 }

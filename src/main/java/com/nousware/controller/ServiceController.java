@@ -36,10 +36,14 @@ public class ServiceController {
         return ResponseEntity.ok(service.get(id));
     }
 
-    // List/search — public (?q=keyword) with pagination
+    // List/search — public (?q=keyword&category=slug) with pagination
     @GetMapping
-    public ResponseEntity<Page<Service>> list(@RequestParam(required = false) String q, Pageable pageable) {
-        return ResponseEntity.ok(service.list(q, pageable));
+    public ResponseEntity<Page<Service>> list(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String category,
+            Pageable pageable
+    ) {
+        return ResponseEntity.ok(service.list(q, category, pageable));
     }
 
     // Update — ADMIN only

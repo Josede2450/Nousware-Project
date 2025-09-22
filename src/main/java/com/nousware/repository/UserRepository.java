@@ -13,6 +13,9 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     /** Check if a user exists by email (case-sensitive in DB collation). */
     boolean existsByEmail(String email);
 
+    /** Check if a user exists by email (case-insensitive). */
+    boolean existsByEmailIgnoreCase(String email);
+
     /** Find by email (legacy use). Prefer the IgnoreCase variant. */
     Optional<User> findByEmail(String email);
 
