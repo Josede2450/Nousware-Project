@@ -31,6 +31,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -42,9 +43,9 @@ public class SecurityConfig {
     private final OAuth2JsonFailureHandler failureHandler;
     private final OAuth2JsonSuccessHandler successHandler;
     private final PasswordEncoder passwordEncoder;
-    private final DbRoleMappingOidcUserService dbRoleMappingOidcUserService; // OIDC only
+    private final DbRoleMappingOidcUserService dbRoleMappingOidcUserService;
 
-    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    @Value("${app.cors.allowed-origins:}")
     private String corsAllowedOrigins;
 
     public SecurityConfig(
@@ -79,22 +80,21 @@ public class SecurityConfig {
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration cors = new org.springframework.web.cors.CorsConfiguration();
 
-        // Orígenes explícitos desde config
+        // Always allow vercel.app + any configured origins
         List<String> origins = Arrays.stream(corsAllowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
                 .toList();
 
-        // ✅ Usar patterns para permitir todos los subdominios de vercel.app
-        cors.setAllowedOriginPatterns(List.of("https://*.vercel.app", "http://localhost:3000"));
+        cors.setAllowedOriginPatterns(new ArrayList<>(List.of("https://*.vercel.app")));
         cors.getAllowedOriginPatterns().addAll(origins);
 
-        cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cors.setAllowedHeaders(List.of(
+        cors.setAllowedMethods(new ArrayList<>(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")));
+        cors.setAllowedHeaders(new ArrayList<>(List.of(
                 "Content-Type", "Authorization", "X-Requested-With",
                 "X-XSRF-TOKEN", "Accept", "Origin"
-        ));
-        cors.setExposedHeaders(List.of("Set-Cookie"));
+        )));
+        cors.setExposedHeaders(new ArrayList<>(List.of("Set-Cookie")));
         cors.setAllowCredentials(true);
         cors.setMaxAge(3600L);
 
@@ -128,7 +128,7 @@ public class SecurityConfig {
 
         CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepo.setCookiePath("/");
-        csrfRepo.setSecure(true); // ✅ Secure cookies in production
+        csrfRepo.setSecure(true);
 
         http
                 .cors(Customizer.withDefaults())
