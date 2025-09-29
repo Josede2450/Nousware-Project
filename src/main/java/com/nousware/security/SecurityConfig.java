@@ -80,15 +80,19 @@ public class SecurityConfig {
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration cors = new org.springframework.web.cors.CorsConfiguration();
 
-        // Always allow vercel.app + any configured origins
+        // Add origins from env
         List<String> origins = Arrays.stream(corsAllowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
                 .toList();
 
-        cors.setAllowedOriginPatterns(new ArrayList<>(List.of("https://*.vercel.app")));
-        cors.getAllowedOriginPatterns().addAll(origins);
+        // ✅ use mutable list to avoid UnsupportedOperationException
+        List<String> patterns = new ArrayList<>();
+        patterns.add("https://*.vercel.app"); // all vercel deployments
+        patterns.add("https://cks-software.vercel.app"); // production domain
+        patterns.addAll(origins); // any extra from env
 
+        cors.setAllowedOriginPatterns(patterns);
         cors.setAllowedMethods(new ArrayList<>(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")));
         cors.setAllowedHeaders(new ArrayList<>(List.of(
                 "Content-Type", "Authorization", "X-Requested-With",
@@ -128,7 +132,7 @@ public class SecurityConfig {
 
         CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepo.setCookiePath("/");
-        csrfRepo.setSecure(true);
+        csrfRepo.setSecure(true); // ✅ secure in production
 
         http
                 .cors(Customizer.withDefaults())
