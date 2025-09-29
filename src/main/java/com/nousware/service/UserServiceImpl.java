@@ -192,7 +192,10 @@ public class UserServiceImpl implements UserService {
     public void resendVerification(String email) {
         String normalizedEmail = normalizeEmail(email);
         userRepository.findByEmailIgnoreCase(normalizedEmail).ifPresent(user -> {
-            if (user.isEnable()) return;
+            if (user.isEnable()) {
+                // 👇 Instead of doing nothing, throw an exception with a clear message
+                throw new IllegalStateException("Your account is already verified.");
+            }
 
             tokenRepository.deleteByUserIdAndType(user.getUserId(), TokenType.EMAIL_VERIFY);
             tokenRepository.flush();
@@ -204,10 +207,11 @@ public class UserServiceImpl implements UserService {
             vt.setTokenType(TokenType.EMAIL_VERIFY);
 
             tokenRepository.saveAndFlush(vt);
-
             emailService.sendVerificationEmail(user.getEmail(), vt.getToken());
         });
     }
+
+
 
     // ===================== Forgot / Reset Password =====================
 

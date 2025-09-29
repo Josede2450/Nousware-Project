@@ -19,8 +19,13 @@ public class ContactForm {
 
     private String name;
     private String email;
-    private String phone;     // <--- NEW
+    private String phone;
     private String message;
 
     private LocalDateTime createdAt;
+
+    // Convenience getter so you can call getId() in logs, etc.
+    public Integer getId() {
+        return contactId;
+    }
 }

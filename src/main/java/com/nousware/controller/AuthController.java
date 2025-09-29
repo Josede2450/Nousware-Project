@@ -5,6 +5,7 @@ import com.nousware.dto.RegistrationRequest;
 import com.nousware.entities.Role;
 import com.nousware.entities.User;
 import com.nousware.service.UserService;
+import com.nousware.service.UserService.VerifyResult; // ⬅️ make sure VerifyResult is exposed by the interface
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -63,26 +64,51 @@ public class AuthController {
         ));
     }
 
+    /**
+     * Accepts ?token=... OR ?code=... (defensive).
+     * Uses verifyOrResend: VERIFIED → success; expired → sends a new link and tells frontend; invalid → failure.
+     * Always redirects to {frontendUrl}/login with query flags so the UI can show a toast.
+     */
     @GetMapping("/verify")
-    public ResponseEntity<Void> verify(@RequestParam String token) {
-        boolean verified = userService.verifyAccount(token);
+    public ResponseEntity<Void> verify(@RequestParam(required = false) String token,
+                                       @RequestParam(required = false, name = "code") String code) {
+        String actual = (token != null && !token.isBlank()) ? token : code;
 
-        String target = UriComponentsBuilder
-                .fromHttpUrl(frontendUrl + "/login")   // 👈 was /auth/login
+        String target;
+        if (actual == null || actual.isBlank()) {
+            target = UriComponentsBuilder.fromHttpUrl(frontendUrl + "/login")
+                    .queryParam("verified", "false")
+                    .queryParam("status", "missing_token")
+                    .build(true)
+                    .toUriString();
+            return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(target)).build();
+        }
+
+        VerifyResult result = userService.verifyOrResend(actual);
+        boolean verified = (result == VerifyResult.VERIFIED);
+
+        UriComponentsBuilder b = UriComponentsBuilder.fromHttpUrl(frontendUrl + "/login")
                 .queryParam("verified", verified ? "true" : "false")
-                .build(true)
-                .toUriString();
+                .queryParam("status", switch (result) {
+                    case VERIFIED -> "verified";
+                    case RESENT_NEW_LINK -> "resent_new_link";
+                    case INVALID -> "invalid";
+                });
 
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .location(URI.create(target))
-                .build();
+        target = b.build(true).toUriString();
+        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(target)).build();
     }
 
     @PostMapping("/resend-verification")
     public ResponseEntity<?> resendVerification(@Valid @RequestBody ResendVerificationRequest req) {
-        userService.resendVerification(req.email());
-        return ResponseEntity.ok(Map.of("message", "If the account exists and is unverified, a new link was sent."));
+        try {
+            userService.resendVerification(req.email());
+            return ResponseEntity.ok(Map.of("message", "If the account exists and is unverified, a new link was sent."));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        }
     }
+
 
     // ---------- Local Login (creates session cookie) ----------
 

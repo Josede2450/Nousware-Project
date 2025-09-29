@@ -16,6 +16,10 @@ public class Faq {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int faqId;
 
+    @Column(nullable = false, length = 500) // or bigger if you want a VARCHAR
     private String question;
+
+    @Lob // Large Object (maps to TEXT in MySQL)
+    @Column(columnDefinition = "TEXT")
     private String answer;
 }
