@@ -3,6 +3,7 @@ package com.nousware.security;
 import com.nousware.service.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -130,7 +131,7 @@ public class SecurityConfig {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(csrfRequestHandler)
                         .ignoringRequestMatchers(
-                                "/api/contact", "/api/contact/**", // ⬅ cover all
+                                "/api/contact", "/api/contact/**",
                                 "/actuator/health", "/actuator/info"
                         )
                 )
@@ -231,13 +232,27 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Writes the CSRF token into a cookie "XSRF-TOKEN" so the frontend can read it.
+     */
     static final class CsrfCookieFilter extends OncePerRequestFilter {
         @Override
         protected void doFilterInternal(
                 HttpServletRequest request,
                 HttpServletResponse response,
                 FilterChain filterChain) throws ServletException, IOException {
+
             CsrfToken token = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+            if (token != null) {
+                Cookie cookie = new Cookie("XSRF-TOKEN", token.getToken());
+                cookie.setPath("/");
+                cookie.setHttpOnly(false); // JS must read it
+                cookie.setSecure(false);   // set true in production (HTTPS)
+                // Allow cross-site in dev (Chrome/Safari need this for localhost:3000 → 8080)
+                cookie.setAttribute("SameSite", "None");
+                response.addCookie(cookie);
+            }
+
             filterChain.doFilter(request, response);
         }
     }
