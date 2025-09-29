@@ -139,7 +139,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfRepo)
                         .csrfTokenRequestHandler(csrfRequestHandler)
+                        // 🚀 Ignore CSRF for auth endpoints so login/register/etc. work
                         .ignoringRequestMatchers(
+                                "/api/auth/**",
                                 "/api/contact", "/api/contact/**",
                                 "/actuator/health", "/actuator/info"
                         )
