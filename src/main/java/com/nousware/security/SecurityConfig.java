@@ -31,6 +31,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -42,9 +43,9 @@ public class SecurityConfig {
     private final OAuth2JsonFailureHandler failureHandler;
     private final OAuth2JsonSuccessHandler successHandler;
     private final PasswordEncoder passwordEncoder;
-    private final DbRoleMappingOidcUserService dbRoleMappingOidcUserService; // OIDC only
+    private final DbRoleMappingOidcUserService dbRoleMappingOidcUserService;
 
-    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    @Value("${app.cors.allowed-origins:}")
     private String corsAllowedOrigins;
 
     public SecurityConfig(
@@ -79,18 +80,25 @@ public class SecurityConfig {
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration cors = new org.springframework.web.cors.CorsConfiguration();
 
+        // Add origins from env
         List<String> origins = Arrays.stream(corsAllowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
                 .toList();
 
-        cors.setAllowedOrigins(origins);
-        cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cors.setAllowedHeaders(List.of(
+        // ✅ use mutable list to avoid UnsupportedOperationException
+        List<String> patterns = new ArrayList<>();
+        patterns.add("https://*.vercel.app"); // all vercel deployments
+        patterns.add("https://cks-software.vercel.app"); // production domain
+        patterns.addAll(origins); // any extra from env
+
+        cors.setAllowedOriginPatterns(patterns);
+        cors.setAllowedMethods(new ArrayList<>(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")));
+        cors.setAllowedHeaders(new ArrayList<>(List.of(
                 "Content-Type", "Authorization", "X-Requested-With",
                 "X-XSRF-TOKEN", "Accept", "Origin"
-        ));
-        cors.setExposedHeaders(List.of("Set-Cookie"));
+        )));
+        cors.setExposedHeaders(new ArrayList<>(List.of("Set-Cookie")));
         cors.setAllowCredentials(true);
         cors.setMaxAge(3600L);
 
@@ -119,18 +127,15 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // CSRF for SPA: cookie repo + stable request attribute name
         CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
         csrfRequestHandler.setCsrfRequestAttributeName("_csrf");
 
         CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepo.setCookiePath("/");
-        csrfRepo.setSecure(true); // secure cookies in production
+        csrfRepo.setSecure(true); // ✅ secure in production
 
         http
                 .cors(Customizer.withDefaults())
-
-                // ⬇️ Disable CSRF only for contact + actuator
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfRepo)
                         .csrfTokenRequestHandler(csrfRequestHandler)
@@ -139,25 +144,19 @@ public class SecurityConfig {
                                 "/actuator/health", "/actuator/info"
                         )
                 )
-                // still writes CSRF cookies for other routes
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
-
                 .headers(h -> h
                         .contentTypeOptions(Customizer.withDefaults())
                         .frameOptions(f -> f.deny())
                         .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
                 )
-
                 .securityContext(sc -> sc.requireExplicitSave(false))
                 .requestCache(RequestCacheConfigurer::disable)
-
                 .sessionManagement(sm -> sm
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .sessionFixation(sf -> sf.migrateSession())
                 )
-
                 .authorizeHttpRequests(auth -> auth
-                        // ==== Public auth & oauth endpoints ====
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/verify",
@@ -169,10 +168,7 @@ public class SecurityConfig {
                                 "/oauth2/**", "/login/**",
                                 "/actuator/health", "/actuator/info"
                         ).permitAll()
-
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // ==== Public GETs ====
                         .requestMatchers(HttpMethod.GET,
                                 "/api/services/**",
                                 "/api/categories/**",
@@ -182,40 +178,28 @@ public class SecurityConfig {
                                 "/api/comments/**",
                                 "/api/tags/**"
                         ).permitAll()
-
-                        // ==== Admin-only management ====
                         .requestMatchers("/api/services/**",
                                 "/api/categories/**",
                                 "/api/faqs/**").hasRole("ADMIN")
-
                         .requestMatchers(HttpMethod.POST,   "/api/testimonials/**").authenticated()
                         .requestMatchers(HttpMethod.PUT,    "/api/testimonials/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH,  "/api/testimonials/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/testimonials/**").hasRole("ADMIN")
-
                         .requestMatchers(HttpMethod.POST,   "/api/posts/**", "/api/comments/**").authenticated()
                         .requestMatchers(HttpMethod.PUT,    "/api/posts/**", "/api/comments/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH,  "/api/posts/**", "/api/comments/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**", "/api/comments/**").hasRole("ADMIN")
-
-                        // ==== Contact form ====
                         .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()
                         .requestMatchers("/api/contact/**").hasRole("ADMIN")
-
-                        // Users
                         .requestMatchers("/api/users/me", "/api/users/me/**").authenticated()
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
-
-                        // Anything else requires auth
                         .anyRequest().authenticated()
                 )
-
                 .oauth2Login(oauth -> oauth
                         .userInfoEndpoint(u -> u.oidcUserService(dbRoleMappingOidcUserService))
                         .successHandler(successHandler)
                         .failureHandler(failureHandler)
                 )
-
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
                         .invalidateHttpSession(true)
@@ -224,21 +208,16 @@ public class SecurityConfig {
                         .logoutSuccessHandler((req, res, auth) ->
                                 res.setStatus(HttpServletResponse.SC_NO_CONTENT))
                 )
-
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(unauthorizedJson())
                         .accessDeniedHandler(forbiddenJson())
                 )
-
                 .authenticationProvider(authenticationProvider())
                 .httpBasic(b -> b.disable());
 
         return http.build();
     }
 
-    /**
-     * Writes the CSRF token into a cookie "XSRF-TOKEN" so the frontend can read it.
-     */
     static final class CsrfCookieFilter extends OncePerRequestFilter {
         @Override
         protected void doFilterInternal(
@@ -250,9 +229,9 @@ public class SecurityConfig {
             if (token != null) {
                 Cookie cookie = new Cookie("XSRF-TOKEN", token.getToken());
                 cookie.setPath("/");
-                cookie.setHttpOnly(false);   // JS must read it
-                cookie.setSecure(true);      // ✅ HTTPS only
-                cookie.setAttribute("SameSite", "None"); // ✅ allow cross-site
+                cookie.setHttpOnly(false);
+                cookie.setSecure(true);
+                cookie.setAttribute("SameSite", "None");
                 response.addCookie(cookie);
             }
 
