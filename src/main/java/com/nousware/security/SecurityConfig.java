@@ -123,12 +123,16 @@ public class SecurityConfig {
         CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
         csrfRequestHandler.setCsrfRequestAttributeName("_csrf");
 
+        CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfRepo.setCookiePath("/");
+        csrfRepo.setSecure(true); // secure cookies in production
+
         http
                 .cors(Customizer.withDefaults())
 
                 // ⬇️ Disable CSRF only for contact + actuator
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRepository(csrfRepo)
                         .csrfTokenRequestHandler(csrfRequestHandler)
                         .ignoringRequestMatchers(
                                 "/api/contact", "/api/contact/**",
@@ -246,10 +250,9 @@ public class SecurityConfig {
             if (token != null) {
                 Cookie cookie = new Cookie("XSRF-TOKEN", token.getToken());
                 cookie.setPath("/");
-                cookie.setHttpOnly(false); // JS must read it
-                cookie.setSecure(false);   // set true in production (HTTPS)
-                // Allow cross-site in dev (Chrome/Safari need this for localhost:3000 → 8080)
-                cookie.setAttribute("SameSite", "None");
+                cookie.setHttpOnly(false);   // JS must read it
+                cookie.setSecure(true);      // ✅ HTTPS only
+                cookie.setAttribute("SameSite", "None"); // ✅ allow cross-site
                 response.addCookie(cookie);
             }
 
