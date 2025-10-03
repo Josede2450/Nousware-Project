@@ -178,7 +178,6 @@ public class SecurityConfig {
                                 "/api/comments/**",
                                 "/api/tags/**"
                         ).permitAll()
-                        // 🔑 accept both ADMIN and ROLE_ADMIN
                         .requestMatchers("/api/services/**",
                                 "/api/categories/**",
                                 "/api/faqs/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
@@ -233,6 +232,7 @@ public class SecurityConfig {
                 cookie.setHttpOnly(false);
                 cookie.setSecure(true);
                 cookie.setAttribute("SameSite", "None");
+                cookie.setDomain("cks.software"); // 👈 ensure frontend & api subdomain can share
                 response.addCookie(cookie);
             }
 
