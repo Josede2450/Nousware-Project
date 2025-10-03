@@ -80,25 +80,30 @@ public class SecurityConfig {
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration cors = new org.springframework.web.cors.CorsConfiguration();
 
-        // Add origins from env
+        // Add origins from env (if any)
         List<String> origins = Arrays.stream(corsAllowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
                 .toList();
 
-        // ✅ use mutable list to avoid UnsupportedOperationException
-        List<String> patterns = new ArrayList<>();
-        patterns.add("https://*.vercel.app"); // all vercel deployments
-        patterns.add("https://cks-software.vercel.app"); // production domain
-        patterns.addAll(origins); // any extra from env
+        // ✅ Restrict to your production domains
+        List<String> allowedOrigins = new ArrayList<>();
+        allowedOrigins.add("https://cks.software");
+        allowedOrigins.add("https://www.cks.software");
 
-        cors.setAllowedOriginPatterns(patterns);
-        cors.setAllowedMethods(new ArrayList<>(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")));
-        cors.setAllowedHeaders(new ArrayList<>(List.of(
+        // Optional: keep vercel preview deploys
+        allowedOrigins.add("https://*.vercel.app");
+
+        // Add any extra from environment variable
+        allowedOrigins.addAll(origins);
+
+        cors.setAllowedOriginPatterns(allowedOrigins);
+        cors.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        cors.setAllowedHeaders(Arrays.asList(
                 "Content-Type", "Authorization", "X-Requested-With",
                 "X-XSRF-TOKEN", "Accept", "Origin"
-        )));
-        cors.setExposedHeaders(new ArrayList<>(List.of("Set-Cookie")));
+        ));
+        cors.setExposedHeaders(List.of("Set-Cookie"));
         cors.setAllowCredentials(true);
         cors.setMaxAge(3600L);
 
