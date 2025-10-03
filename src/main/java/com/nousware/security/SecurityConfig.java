@@ -80,21 +80,15 @@ public class SecurityConfig {
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration cors = new org.springframework.web.cors.CorsConfiguration();
 
-        // Add origins from env (if any)
         List<String> origins = Arrays.stream(corsAllowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
                 .toList();
 
-        // ✅ Restrict to your production domains
         List<String> allowedOrigins = new ArrayList<>();
         allowedOrigins.add("https://cks.software");
         allowedOrigins.add("https://www.cks.software");
-
-        // Optional: keep vercel preview deploys
         allowedOrigins.add("https://*.vercel.app");
-
-        // Add any extra from environment variable
         allowedOrigins.addAll(origins);
 
         cors.setAllowedOriginPatterns(allowedOrigins);
@@ -137,14 +131,13 @@ public class SecurityConfig {
 
         CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepo.setCookiePath("/");
-        csrfRepo.setSecure(true); // ✅ secure in production
+        csrfRepo.setSecure(true);
 
         http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfRepo)
                         .csrfTokenRequestHandler(csrfRequestHandler)
-                        // 🚀 Ignore CSRF for auth endpoints so login/register/etc. work
                         .ignoringRequestMatchers(
                                 "/api/auth/**",
                                 "/api/contact", "/api/contact/**",
@@ -185,21 +178,22 @@ public class SecurityConfig {
                                 "/api/comments/**",
                                 "/api/tags/**"
                         ).permitAll()
+                        // 🔑 accept both ADMIN and ROLE_ADMIN
                         .requestMatchers("/api/services/**",
                                 "/api/categories/**",
-                                "/api/faqs/**").hasRole("ADMIN")
+                                "/api/faqs/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
                         .requestMatchers(HttpMethod.POST,   "/api/testimonials/**").authenticated()
-                        .requestMatchers(HttpMethod.PUT,    "/api/testimonials/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PATCH,  "/api/testimonials/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/testimonials/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,    "/api/testimonials/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH,  "/api/testimonials/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/testimonials/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
                         .requestMatchers(HttpMethod.POST,   "/api/posts/**", "/api/comments/**").authenticated()
-                        .requestMatchers(HttpMethod.PUT,    "/api/posts/**", "/api/comments/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PATCH,  "/api/posts/**", "/api/comments/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**", "/api/comments/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,    "/api/posts/**", "/api/comments/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH,  "/api/posts/**", "/api/comments/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**", "/api/comments/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()
-                        .requestMatchers("/api/contact/**").hasRole("ADMIN")
+                        .requestMatchers("/api/contact/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
                         .requestMatchers("/api/users/me", "/api/users/me/**").authenticated()
-                        .requestMatchers("/api/users/**").hasRole("ADMIN")
+                        .requestMatchers("/api/users/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth
