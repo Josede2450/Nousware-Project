@@ -23,7 +23,7 @@ public class TestimonialController {
         this.service = service;
     }
 
-    // ---------- Create — ADMIN only ----------
+    /* ---------- CREATE (Admin only) ---------- */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ViewTestimonial> create(@Valid @RequestBody Testimonial body) {
@@ -31,25 +31,24 @@ public class TestimonialController {
         return ResponseEntity.status(201).body(service.getView(created.getTestimonialId()));
     }
 
-    // ---------- Read one — public ----------
+    /* ---------- READ ONE (Public) ---------- */
     @GetMapping("/{id}")
     public ResponseEntity<ViewTestimonial> get(@PathVariable Integer id) {
         return ResponseEntity.ok(service.getView(id));
     }
 
-    // ---------- List/search — public ----------
-    // Supports ?q=keyword, ?userId=123, ?favorite=true and pageable params (?page=&size=&sort=createdAt,desc)
+    /* ---------- LIST / SEARCH (Public) ---------- */
+    // Supports ?q=keyword, ?favorite=true, and pageable params (?page=&size=&sort=createdAt,desc)
     @GetMapping
     public ResponseEntity<Page<ViewTestimonial>> list(
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) Integer userId,
             @RequestParam(required = false) Boolean favorite,
             Pageable pageable
     ) {
-        return ResponseEntity.ok(service.listView(q, userId, favorite, pageable));
+        return ResponseEntity.ok(service.listView(q, favorite, pageable));
     }
 
-    // ---------- Update — ADMIN only ----------
+    /* ---------- UPDATE (Admin only) ---------- */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ViewTestimonial> update(@PathVariable Integer id,
@@ -58,7 +57,7 @@ public class TestimonialController {
         return ResponseEntity.ok(service.getView(updated.getTestimonialId()));
     }
 
-    // ---------- Delete — ADMIN only ----------
+    /* ---------- DELETE (Admin only) ---------- */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(@PathVariable Integer id) {

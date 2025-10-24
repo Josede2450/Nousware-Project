@@ -89,9 +89,7 @@ public class User {
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<Project> projects = new ArrayList<>();
 
-    @JsonIgnore
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
-    private List<Testimonial> testimonials = new ArrayList<>();
+    // ✅ REMOVED testimonial relation (no longer needed)
 
     @JsonIgnore
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
@@ -103,9 +101,9 @@ public class User {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
-    private List<Role> roles = new ArrayList<>(); // ✅ MUTABLE by default
+    private List<Role> roles = new ArrayList<>();
 
-    // Optional helpers (nice for service code)
+    // Optional helper
     public void setRolesMutable(List<Role> newRoles) {
         if (this.roles == null) this.roles = new ArrayList<>();
         this.roles.clear();

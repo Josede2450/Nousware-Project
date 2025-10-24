@@ -17,15 +17,16 @@ public class Testimonial {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int testimonialId;
 
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     private LocalDateTime createdAt;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+    // ✅ Long text field to store image URL
+    @Column(name = "img_url", columnDefinition = "TEXT")
+    private String imgUrl;
 
-    // ✅ Renamed field (many favorites allowed)
-    @Column(name = "favorite")  // DB column name
+    // ✅ Allows marking favorite testimonials
+    @Column(name = "favorite")
     private boolean favorite;
 }
